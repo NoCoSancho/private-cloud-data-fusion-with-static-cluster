@@ -29,6 +29,7 @@ SUBNET_NAME=demo-subnet-1
 ##
 ##################################################
 
+echo "configuring org policies for argolis envs"
 
 cat <<EOF > new_policy.yaml
 constraint: constraints/compute.vmExternalIpAccess
@@ -55,6 +56,8 @@ gcloud resource-manager org-policies disable-enforce \
 ##
 ##################################################
 
+echo "enabling APIs"
+
 gcloud config set project ${PROJECT_ID}
 
 gcloud services enable compute.googleapis.com
@@ -80,12 +83,15 @@ gcloud services enable sqladmin.googleapis.com
 ##
 ##################################################
 
+echo "creating a VPC Network"
+
 gcloud compute networks create ${VPC_NAME} \
 --project=${PROJECT_ID} \
 --subnet-mode=custom \
 --mtu=1460 \
 --bgp-routing-mode=regional
 
+echo "Creating a subnet"
 
 gcloud compute networks subnets create ${SUBNET_NAME} \
 --range=10.100.0.0/20 \
@@ -98,6 +104,9 @@ gcloud compute networks subnets create ${SUBNET_NAME} \
 ## Create FW rules
 ##
 ##################################################
+
+echo "configuring firewall rules"
+
 #allow all internal
 gcloud compute firewall-rules create allow-all-internal \
 --direction=INGRESS \
@@ -126,6 +135,9 @@ gcloud compute firewall-rules create fusion-allow-ssh \
 ##
 ##################################################
 
+echo "configuring cloud nat"
+
+
 gcloud compute routers create nat-router \
     --network ${VPC_NAME} \
     --region ${REGION}
@@ -143,6 +155,9 @@ gcloud compute routers create nat-router \
 ##
 ##################################################
 
+echo "creating address range for data fusion tenant project"
+
+
 gcloud compute addresses create datafusion-tenant-project-ips \
     --global \
     --purpose=VPC_PEERING \
@@ -150,6 +165,9 @@ gcloud compute addresses create datafusion-tenant-project-ips \
     --prefix-length=22 \
     --description="Data Fusion Tenant Project IP Range" \
     --network=${VPC_NAME}
+    
+echo "creating a private CDF cluster, this command is asynchronous"
+
 
 CDF_INSTANCES_API=https://datafusion.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/instances
 
@@ -159,6 +177,16 @@ curl -H "Authorization: Bearer $(gcloud auth print-access-token)" \
    -X POST -d \
    '{"description": "Private CDF", "type": "DEVELOPER", "privateInstance": true, "networkConfig": {"network": "'${VPC_NAME}'", "ipAllocation": "192.168.0.0/22"}}'
 
+echo "fusion instance job creation job submitted.  review the above for errors"
+
+echo "sleeping for 15 minutes to wait for cluster completion"
+
+echo `date`
+
+sleep 15m
+
+echo "looking up the tenant project number"
+
 PROJECT_NUM=`gcloud projects list \
     --filter="$(gcloud config get-value project)" \
     --format="value(PROJECT_NUMBER)"`
@@ -167,6 +195,8 @@ TENANT_PROJECT_ID=`curl -H "Authorization: Bearer $(gcloud auth print-access-tok
    -H "Content-Type: application/json" \
    ${CDF_INSTANCES_API}/cdf-dev-private \
    | jq -r '.tenantProjectId'`
+
+echo "creating network peering between VPC and tenant project"
 
 gcloud compute networks peerings create data-fusion-peering \
     --peer-project=${TENANT_PROJECT_ID} \
@@ -183,6 +213,9 @@ gcloud compute networks peerings create data-fusion-peering \
 ## account
 ##
 ##################################################
+
+echo "configuring permissons for compute and data fusion service accounts"
+
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member=serviceAccount:${PROJECT_NUM}-compute@developer.gserviceaccount.com \
     --role=roles/editor
@@ -199,6 +232,9 @@ gcloud iam service-accounts add-iam-policy-binding \
 ## 
 ##
 ##################################################
+
+echo "creating static dataproc cluster"
+
 
   gcloud dataproc clusters create cdf-static-cluster \
   --enable-component-gateway \
