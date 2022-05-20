@@ -12,7 +12,7 @@
 ## Variables needed upfront
 ##
 ##################################################
-PROJECT=my-awesome-project-01
+PROJECT_ID=my-awesome-project-01
 REGION=us-central1
 ZONE=us-central1-a
 VPC_NAME=demo-vpc
