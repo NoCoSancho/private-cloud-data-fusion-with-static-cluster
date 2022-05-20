@@ -1,8 +1,9 @@
 ##################################################
 ##
-## Run the commands below manually (not as a
-## single script), since some commands like
-## "gcloud auth login" may be interactive.
+## creates a private data fusion instance and static
+## cdf cluster in an existing project.
+## run as a user that can modify org policies in
+## the project.  Works in argolis.
 ##
 ##################################################
 
@@ -12,25 +13,22 @@
 ## Variables needed upfront
 ##
 ##################################################
+# project id for the existing project you want to deploy into
 PROJECT_ID=my-awesome-project-01
+
+# these can be left as default
 REGION=us-central1
 ZONE=us-central1-a
 VPC_NAME=demo-vpc
 SUBNET_NAME=demo-subnet-1
-PROJECT_OWNER_USER=argolis-user@mydomain.com
-ADMIN_USER=argolis-admin@mydomain.com
 
 
 ##################################################
 ##
-## Login as Argolis admin and create the project
-## with necessary settings for using Data Fusion
+## configure org policies
 ##
 ##################################################
 
-
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-   --member="user:${PROJECT_OWNER_USER}" --role='roles/owner'
 
 cat <<EOF > new_policy.yaml
 constraint: constraints/compute.vmExternalIpAccess
@@ -51,6 +49,11 @@ gcloud resource-manager org-policies set-policy \
 gcloud resource-manager org-policies disable-enforce \
     compute.requireShieldedVm --project=${PROJECT_ID}
 
+##################################################
+##
+## enable APIs
+##
+##################################################
 
 gcloud config set project ${PROJECT_ID}
 
@@ -71,6 +74,11 @@ gcloud services enable servicenetworking.googleapis.com
 
 gcloud services enable sqladmin.googleapis.com
 
+##################################################
+##
+## Create VPC Network and subnet
+##
+##################################################
 
 gcloud compute networks create ${VPC_NAME} \
 --project=${PROJECT_ID} \
@@ -87,7 +95,7 @@ gcloud compute networks subnets create ${SUBNET_NAME} \
 
 ##################################################
 ##
-## FW rules
+## Create FW rules
 ##
 ##################################################
 #allow all internal
@@ -114,7 +122,7 @@ gcloud compute firewall-rules create fusion-allow-ssh \
 
 ##################################################
 ##
-## Cloud Nat
+## Create Cloud Nat
 ##
 ##################################################
 
@@ -143,7 +151,7 @@ gcloud compute addresses create datafusion-tenant-project-ips \
     --description="Data Fusion Tenant Project IP Range" \
     --network=${VPC_NAME}
 
-CDF_INSTANCES_API=https://datafusion.googleapis.com/v1/projects/$PROJECT/locations/${REGION}/instances
+CDF_INSTANCES_API=https://datafusion.googleapis.com/v1/projects/$PROJECT_ID/locations/${REGION}/instances
 
 curl -H "Authorization: Bearer $(gcloud auth print-access-token)" \
    -H "Content-Type: application/json" \
