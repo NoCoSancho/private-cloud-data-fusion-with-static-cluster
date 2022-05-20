@@ -151,7 +151,7 @@ gcloud compute addresses create datafusion-tenant-project-ips \
     --description="Data Fusion Tenant Project IP Range" \
     --network=${VPC_NAME}
 
-CDF_INSTANCES_API=https://datafusion.googleapis.com/v1/projects/$PROJECT_ID/locations/${REGION}/instances
+CDF_INSTANCES_API=https://datafusion.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/instances
 
 curl -H "Authorization: Bearer $(gcloud auth print-access-token)" \
    -H "Content-Type: application/json" \
